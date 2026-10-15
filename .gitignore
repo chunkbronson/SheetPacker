@@ -1,0 +1,6 @@
+/target
+*.rs.bk
+
+# Local dev / AI scaffolding — not part of the public project
+/PLAN.md
+/PROMPT.md
