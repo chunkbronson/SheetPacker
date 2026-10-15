@@ -23,6 +23,7 @@ pub struct SheetPackerApp {
     margin: u32,
     spacing: u32,
     fit_mode: FitMode,
+    labels: bool,
     status: String,
     last_output: Option<PathBuf>,
     preview_tex: Option<egui::TextureHandle>,
@@ -47,6 +48,7 @@ impl Default for SheetPackerApp {
             margin: 0,
             spacing: 0,
             fit_mode: FitMode::Exact,
+            labels: false,
             status: "Drop PNG frames here, or use “Add files…” / “Import folder…”."
                 .to_owned(),
             last_output: None,
@@ -82,6 +84,7 @@ impl SheetPackerApp {
             margin: self.margin,
             spacing: self.spacing,
             fit_mode: self.fit_mode,
+            labels: self.labels && self.fit_mode != FitMode::Letterbox,
         }
     }
 
@@ -252,6 +255,7 @@ impl eframe::App for SheetPackerApp {
             self.margin,
             self.spacing,
             self.fit_mode,
+            self.labels,
         );
 
         // --- Top bar -----------------------------------------------------
@@ -427,6 +431,21 @@ impl eframe::App for SheetPackerApp {
                         ui.selectable_value(&mut self.fit_mode, FitMode::Stretch, "Stretch to cell");
                         ui.selectable_value(&mut self.fit_mode, FitMode::Exact, "Exact (no scaling)");
                     });
+
+                ui.add_space(10.0);
+                let labels_ok = self.fit_mode != FitMode::Letterbox;
+                ui.add_enabled(
+                    labels_ok,
+                    egui::Checkbox::new(&mut self.labels, "File-name labels"),
+                )
+                .on_disabled_hover_text("Labels are for grid layouts — use Exact or Stretch.");
+                if labels_ok && self.labels {
+                    ui.label(
+                        egui::RichText::new("good for contact sheets")
+                            .size(11.0)
+                            .color(MUTED),
+                    );
+                }
 
                 ui.add_space(14.0);
                 let capacity = self.cols * self.rows;
@@ -611,6 +630,7 @@ impl eframe::App for SheetPackerApp {
             self.margin,
             self.spacing,
             self.fit_mode,
+            self.labels,
         );
         if now != snapshot {
             self.dirty = true;

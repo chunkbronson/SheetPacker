@@ -17,7 +17,8 @@ paid sprite-sheet tools like TexturePacker, built in Rust with `egui`.
 - **Live preview** — see the composed sheet as you tweak settings.
 - **Drag to reorder** — reorder frames in the list; order feeds straight into the sheet.
 - **Grid layout** — columns × rows, plus final sheet **width/height**, **margin**, and **spacing**.
-- **Fit modes** — `Exact` (no scaling), `Letterbox` (keep aspect), or `Stretch` to fill each cell.
+- **Fit modes** — `Exact` (no scaling, default), `Letterbox` (keep aspect), or `Stretch` to fill each cell.
+- **File-name labels** — optionally stamp each frame's file name beneath it — ideal for **contact sheets**.
 - **Flipbook playback** — play the frames back at a chosen FPS to preview the motion.
 - **Natural sort** — `frame_2.png` comes before `frame_10.png` automatically.
 - **Overflow handling** — warns when frames exceed the grid and offers a one-click **Auto-fit grid**.
@@ -68,13 +69,22 @@ sheetpacker ./frames --out sheet.png --cols 4 --rows 4 --size 2048x2048 --fit ex
 ```
 
 Options: `--out <file>`, `--cols N`, `--rows N`, `--size WxH`, `--margin N`,
-`--spacing N`, `--fit exact|letterbox|stretch`.
+`--spacing N`, `--fit exact|letterbox|stretch`, `--labels`.
 
 ## Example output
 
-16 frames packed into a 4×4 sheet (letterboxed into square cells):
+16 frames packed into a 4×4 sheet with **Exact** fit (the default — frames at
+native size, no scaling):
 
 ![Example sheet](docs/example-sheet.png)
+
+The same sheet with **file-name labels** enabled — ideal for contact sheets:
+
+![Example with labels](docs/example-labels.png)
+
+And with **Letterbox** fit + labels, a classic thumbnail contact sheet:
+
+![Contact sheet](docs/example-contact-sheet.png)
 
 ## License
 

@@ -1,15 +1,17 @@
 [package]
 name = "sheetpacker"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Fast cross-platform PNG-sequence -> flipbook / sprite sheet packer (free TexturePacker-style tool)"
 license = "MIT"
 
 [dependencies]
+ab_glyph = "0.2.32"
 # `egui` comes from `eframe::egui` (version-locked), NOT a separate dependency.
 anyhow = "1"
 eframe = "0.36"
 image = "0.25"
+imageproc = "0.27.0"
 rfd = "0.17"
 
 [profile.release]

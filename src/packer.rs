@@ -1,7 +1,21 @@
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
+use ab_glyph::{FontVec, PxScale};
 use anyhow::{Context, Result};
 use image::{DynamicImage, Rgba, RgbaImage};
+use imageproc::drawing::{draw_filled_rect_mut, draw_text_mut, text_size};
+use imageproc::rect::Rect;
+
+/// Bundled font used to draw file-name labels into the sheet.
+static LABEL_FONT: OnceLock<FontVec> = OnceLock::new();
+
+fn label_font() -> &'static FontVec {
+    LABEL_FONT.get_or_init(|| {
+        let bytes = include_bytes!("../assets/DejaVuSans.ttf");
+        FontVec::try_from_vec(bytes.to_vec()).expect("embedded label font is valid")
+    })
+}
 
 /// How the sheet should be laid out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,6 +34,8 @@ pub struct GridConfig {
     pub margin: u32,
     pub spacing: u32,
     pub fit_mode: FitMode,
+    /// Draw each frame's file name beneath it (contact-sheet style).
+    pub labels: bool,
 }
 
 impl Default for GridConfig {
@@ -31,7 +47,8 @@ impl Default for GridConfig {
             sheet_h: 2048,
             margin: 0,
             spacing: 0,
-            fit_mode: FitMode::Letterbox,
+            fit_mode: FitMode::Exact,
+            labels: false,
         }
     }
 }
@@ -74,30 +91,85 @@ pub fn build_sheet_image(files: &[PathBuf], cfg: &GridConfig) -> Result<RgbaImag
     let mut canvas = RgbaImage::from_pixel(cfg.sheet_w, cfg.sheet_h, Rgba([0, 0, 0, 0]));
     let capacity = (cfg.cols * cfg.rows) as usize;
 
+    // When labels are on, reserve a strip at the bottom of every cell.
+    let label_h = if cfg.labels {
+        (cell_h / 7).clamp(14, 56)
+    } else {
+        0
+    };
+    let img_h = cell_h.saturating_sub(label_h).max(1);
+
     for (index, path) in files.iter().take(capacity).enumerate() {
         let img_val = image::open(path).with_context(|| format!("opening {}", path.display()))?;
         let thumb = match cfg.fit_mode {
-            FitMode::Letterbox => fit(&img_val, cell_w, cell_h),
-            FitMode::Stretch => {
-                img_val
-                    .resize_exact(cell_w, cell_h, image::imageops::FilterType::Lanczos3)
-                    .to_rgba8()
-            }
+            FitMode::Letterbox => fit(&img_val, cell_w, img_h),
+            FitMode::Stretch => img_val
+                .resize_exact(cell_w, img_h, image::imageops::FilterType::Lanczos3)
+                .to_rgba8(),
             FitMode::Exact => img_val.to_rgba8(),
         };
 
         let col = index as u32 % cfg.cols;
         let row = index as u32 / cfg.cols;
-        let x = cfg.margin
-            + col * (cell_w + cfg.spacing)
-            + (cell_w - thumb.width()) / 2;
-        let y = cfg.margin
-            + row * (cell_h + cfg.spacing)
-            + (cell_h - thumb.height()) / 2;
+        let cell_x = cfg.margin + col * (cell_w + cfg.spacing);
+        let cell_y = cfg.margin + row * (cell_h + cfg.spacing);
+        let x = cell_x + cell_w.saturating_sub(thumb.width()) / 2;
+        let y = cell_y + img_h.saturating_sub(thumb.height()) / 2;
 
         image::imageops::overlay(&mut canvas, &thumb, x as i64, y as i64);
+
+        if label_h > 0 {
+            let name = path
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            draw_label(&mut canvas, cell_x, cell_y + cell_h - label_h, cell_w, label_h, &name);
+        }
     }
     Ok(canvas)
+}
+
+/// Draw a centred file-name label with a dark pill behind it for legibility.
+fn draw_label(canvas: &mut RgbaImage, cell_x: u32, label_y: u32, cell_w: u32, label_h: u32, text: &str) {
+    let font = label_font();
+    let avail = cell_w.saturating_sub(8) as f32;
+    let base = (label_h as f32 * 0.6).max(9.0);
+
+    let mut scale = PxScale::from(base);
+    let (mut tw, mut th) = text_size(scale, font, text);
+    // Shrink to fit, then truncate if still too wide.
+    if tw as f32 > avail {
+        let f = (avail / tw as f32).max(0.35);
+        scale = PxScale::from((base * f).max(7.0));
+        let s = text_size(scale, font, text);
+        tw = s.0;
+        th = s.1;
+    }
+    let mut shown = text.to_string();
+    while tw as f32 > avail && shown.chars().count() > 1 {
+        shown.pop();
+        let s = text_size(scale, font, &shown);
+        tw = s.0;
+        th = s.1;
+    }
+
+    let bx = cell_x + cell_w.saturating_sub(tw) / 2;
+    let by = label_y + label_h.saturating_sub(th) / 2;
+
+    let pad_x = 5i32;
+    let pad_y = 2i32;
+    let rect = Rect::at(bx as i32 - pad_x, by as i32 - pad_y)
+        .of_size(tw + 2 * pad_x as u32, th + 2 * pad_y as u32);
+    draw_filled_rect_mut(canvas, rect, Rgba([10, 12, 16, 180]));
+    draw_text_mut(
+        canvas,
+        Rgba([236, 238, 242, 255]),
+        bx as i32,
+        by as i32,
+        scale,
+        font,
+        &shown,
+    );
 }
 
 /// Scale `img` down/up to fit inside `max_w` x `max_h`, preserving aspect ratio.
@@ -166,6 +238,7 @@ mod tests {
             margin: 0,
             spacing: 0,
             fit_mode: FitMode::Letterbox,
+            labels: false,
         };
         build_sheet(&files, &cfg, &out).unwrap();
 

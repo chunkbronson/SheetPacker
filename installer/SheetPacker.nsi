@@ -10,11 +10,11 @@ Icon "SheetPacker.ico"
 !define MUI_ICON   "SheetPacker.ico"
 !define MUI_UNICON "SheetPacker.ico"
 
-VIProductVersion "0.1.0.0"
+VIProductVersion "0.2.0.0"
 VIAddVersionKey "ProductName"     "SheetPacker"
 VIAddVersionKey "FileDescription" "SheetPacker installer"
-VIAddVersionKey "FileVersion"     "0.1.0"
-VIAddVersionKey "ProductVersion"  "0.1.0"
+VIAddVersionKey "FileVersion"     "0.2.0"
+VIAddVersionKey "ProductVersion"  "0.2.0"
 VIAddVersionKey "LegalCopyright"  "SheetPacker"
 
 !include "MUI2.nsh"
@@ -48,7 +48,7 @@ Section "SheetPacker" SecMain
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
   WriteRegStr HKCU "${UNKEY}" "DisplayName"     "SheetPacker"
-  WriteRegStr HKCU "${UNKEY}" "DisplayVersion"  "0.1.0"
+  WriteRegStr HKCU "${UNKEY}" "DisplayVersion"  "0.2.0"
   WriteRegStr HKCU "${UNKEY}" "Publisher"       "SheetPacker"
   WriteRegStr HKCU "${UNKEY}" "DisplayIcon"     "$INSTDIR\SheetPacker.exe"
   WriteRegStr HKCU "${UNKEY}" "InstallLocation" "$INSTDIR"

@@ -21,7 +21,8 @@ fn main() -> eframe::Result {
         sheet_h: 2048,
         margin: 0,
         spacing: 0,
-        fit_mode: FitMode::Letterbox,
+        fit_mode: FitMode::Exact,
+        labels: false,
     };
 
     let mut i = 0;
@@ -71,13 +72,14 @@ fn main() -> eframe::Result {
             "--fit" => {
                 if let Some(v) = take(i) {
                     cfg.fit_mode = match v {
+                        "letterbox" => FitMode::Letterbox,
                         "stretch" => FitMode::Stretch,
-                        "exact" => FitMode::Exact,
-                        _ => FitMode::Letterbox,
+                        _ => FitMode::Exact,
                     };
                 }
                 i += 1;
             }
+            "--labels" => cfg.labels = true,
             other => collect_path(Path::new(other), &mut files),
         }
         i += 1;
