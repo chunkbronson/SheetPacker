@@ -23,6 +23,7 @@ fn main() -> eframe::Result {
         spacing: 0,
         fit_mode: FitMode::Exact,
         labels: false,
+        label_below: true,
     };
 
     let mut i = 0;
@@ -80,6 +81,10 @@ fn main() -> eframe::Result {
                 i += 1;
             }
             "--labels" => cfg.labels = true,
+            "--labels-on-image" => {
+                cfg.labels = true;
+                cfg.label_below = false;
+            }
             other => collect_path(Path::new(other), &mut files),
         }
         i += 1;
@@ -122,7 +127,7 @@ fn main() -> eframe::Result {
             let app = if files.is_empty() {
                 app::SheetPackerApp::default()
             } else {
-                app::SheetPackerApp::with_files(files)
+                app::SheetPackerApp::with_files(files, cfg)
             };
             Ok(Box::new(app))
         }),

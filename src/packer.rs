@@ -34,8 +34,11 @@ pub struct GridConfig {
     pub margin: u32,
     pub spacing: u32,
     pub fit_mode: FitMode,
-    /// Draw each frame's file name beneath it (contact-sheet style).
+    /// Draw each frame's file name.
     pub labels: bool,
+    /// `true` = label beneath the frame (reserves space); `false` = label
+    /// overlaid on the image (keeps edge-to-edge tiling).
+    pub label_below: bool,
 }
 
 impl Default for GridConfig {
@@ -49,6 +52,7 @@ impl Default for GridConfig {
             spacing: 0,
             fit_mode: FitMode::Exact,
             labels: false,
+            label_below: true,
         }
     }
 }
@@ -91,13 +95,19 @@ pub fn build_sheet_image(files: &[PathBuf], cfg: &GridConfig) -> Result<RgbaImag
     let mut canvas = RgbaImage::from_pixel(cfg.sheet_w, cfg.sheet_h, Rgba([0, 0, 0, 0]));
     let capacity = (cfg.cols * cfg.rows) as usize;
 
-    // When labels are on, reserve a strip at the bottom of every cell.
+    // Labels *on* the image overlay the frame (keeps the sheet a seamless
+    // edge-to-edge tiling). Labels *beneath* reserve a strip at the bottom of
+    // each cell — which, by design, is NOT edge-to-edge (e.g. contact sheets).
     let label_h = if cfg.labels {
-        (cell_h / 7).clamp(14, 56)
+        (cell_h / 8).clamp(14, 56)
     } else {
         0
     };
-    let img_h = cell_h.saturating_sub(label_h).max(1);
+    let img_h = if cfg.labels && cfg.label_below {
+        cell_h.saturating_sub(label_h).max(1)
+    } else {
+        cell_h
+    };
 
     for (index, path) in files.iter().take(capacity).enumerate() {
         let img_val = image::open(path).with_context(|| format!("opening {}", path.display()))?;
@@ -239,6 +249,7 @@ mod tests {
             spacing: 0,
             fit_mode: FitMode::Letterbox,
             labels: false,
+            label_below: false,
         };
         build_sheet(&files, &cfg, &out).unwrap();
 

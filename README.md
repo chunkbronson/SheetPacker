@@ -17,8 +17,9 @@ paid sprite-sheet tools like TexturePacker, built in Rust with `egui`.
 - **Live preview** — see the composed sheet as you tweak settings.
 - **Drag to reorder** — reorder frames in the list; order feeds straight into the sheet.
 - **Grid layout** — columns × rows, plus final sheet **width/height**, **margin**, and **spacing**.
+- **Edge-to-edge packing** — `Match sheet to grid` sizes the sheet to the grid, so same-size frames tile **seamlessly** into a power-of-two sheet (e.g. 16× 256px frames → 1024×1024).
 - **Fit modes** — `Exact` (no scaling, default), `Letterbox` (keep aspect), or `Stretch` to fill each cell.
-- **File-name labels** — optionally stamp each frame's file name beneath it — ideal for **contact sheets**.
+- **File-name labels** — stamp each frame's file name, either **on** the image or **beneath** it (great for contact sheets).
 - **Flipbook playback** — play the frames back at a chosen FPS to preview the motion.
 - **Natural sort** — `frame_2.png` comes before `frame_10.png` automatically.
 - **Overflow handling** — warns when frames exceed the grid and offers a one-click **Auto-fit grid**.
@@ -69,20 +70,21 @@ sheetpacker ./frames --out sheet.png --cols 4 --rows 4 --size 2048x2048 --fit ex
 ```
 
 Options: `--out <file>`, `--cols N`, `--rows N`, `--size WxH`, `--margin N`,
-`--spacing N`, `--fit exact|letterbox|stretch`, `--labels`.
+`--spacing N`, `--fit exact|letterbox|stretch`, `--labels` (file names beneath),
+`--labels-on-image` (file names overlaid).
+
+For an edge-to-edge power-of-two sheet, set `--size` to *cols × frame width* by
+*rows × frame height* (or just use the **Match sheet to grid** button in the GUI).
 
 ## Example output
 
-16 frames packed into a 4×4 sheet with **Exact** fit (the default — frames at
-native size, no scaling):
+**Packed sheet (the main use):** sixteen 256×256 frames tiled **edge-to-edge**
+into a **1024×1024** (power-of-two) sheet — one click with *Match sheet to grid*:
 
 ![Example sheet](docs/example-sheet.png)
 
-The same sheet with **file-name labels** enabled — ideal for contact sheets:
-
-![Example with labels](docs/example-labels.png)
-
-And with **Letterbox** fit + labels, a classic thumbnail contact sheet:
+**Contact sheet:** gapped thumbnails with **file-name labels** beneath each
+frame (2048×2048):
 
 ![Contact sheet](docs/example-contact-sheet.png)
 

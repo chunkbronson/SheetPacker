@@ -24,6 +24,7 @@ pub struct SheetPackerApp {
     spacing: u32,
     fit_mode: FitMode,
     labels: bool,
+    label_below: bool,
     status: String,
     last_output: Option<PathBuf>,
     preview_tex: Option<egui::TextureHandle>,
@@ -49,6 +50,7 @@ impl Default for SheetPackerApp {
             spacing: 0,
             fit_mode: FitMode::Exact,
             labels: false,
+            label_below: true,
             status: "Drop PNG frames here, or use “Add files…” / “Import folder…”."
                 .to_owned(),
             last_output: None,
@@ -65,9 +67,19 @@ impl Default for SheetPackerApp {
 }
 
 impl SheetPackerApp {
-    /// Create the app with frames preloaded (e.g. from a CLI argument).
-    pub fn with_files(files: Vec<PathBuf>) -> Self {
+    /// Create the app with frames preloaded and grid settings applied
+    /// (e.g. from CLI arguments).
+    pub fn with_files(files: Vec<PathBuf>, cfg: GridConfig) -> Self {
         let mut app = Self::default();
+        app.cols = cfg.cols as usize;
+        app.rows = cfg.rows as usize;
+        app.sheet_w = cfg.sheet_w;
+        app.sheet_h = cfg.sheet_h;
+        app.margin = cfg.margin;
+        app.spacing = cfg.spacing;
+        app.fit_mode = cfg.fit_mode;
+        app.labels = cfg.labels;
+        app.label_below = cfg.label_below;
         app.files = files;
         app.sort_files();
         app.dirty = true;
@@ -84,7 +96,8 @@ impl SheetPackerApp {
             margin: self.margin,
             spacing: self.spacing,
             fit_mode: self.fit_mode,
-            labels: self.labels && self.fit_mode != FitMode::Letterbox,
+            labels: self.labels,
+            label_below: self.label_below,
         }
     }
 
@@ -175,6 +188,23 @@ impl SheetPackerApp {
         self.status = format!("Auto-fit grid: {}×{}", self.cols, self.rows);
     }
 
+    /// Size the sheet to the grid so same-size frames tile edge-to-edge.
+    fn fit_sheet_to_frames(&mut self) {
+        let Some(path) = self.files.first() else {
+            return;
+        };
+        let Ok((w, h)) = image::image_dimensions(path) else {
+            self.status = "Could not read frame size".to_owned();
+            return;
+        };
+        let cols = self.cols as u32;
+        let rows = self.rows as u32;
+        self.sheet_w = cols * w + self.margin * 2 + self.spacing * cols.saturating_sub(1);
+        self.sheet_h = rows * h + self.margin * 2 + self.spacing * rows.saturating_sub(1);
+        self.dirty = true;
+        self.status = format!("Sheet matched to grid: {} × {} px", self.sheet_w, self.sheet_h);
+    }
+
     /// Move a frame from index `from` to index `to`.
     fn move_file(&mut self, from: usize, to: usize) {
         if from >= self.files.len() || from == to {
@@ -256,6 +286,7 @@ impl eframe::App for SheetPackerApp {
             self.spacing,
             self.fit_mode,
             self.labels,
+            self.label_below,
         );
 
         // --- Top bar -----------------------------------------------------
@@ -420,6 +451,27 @@ impl eframe::App for SheetPackerApp {
                         ui.end_row();
                     });
 
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    let enabled = !self.files.is_empty();
+                    if ui
+                        .add_enabled(enabled, egui::Button::new("Match sheet to grid"))
+                        .on_hover_text("Size the sheet so same-size frames tile edge-to-edge")
+                        .clicked()
+                    {
+                        self.fit_sheet_to_frames();
+                    }
+                    if let Some(p) = self.files.first() {
+                        if let Ok((w, h)) = image::image_dimensions(p) {
+                            ui.label(
+                                egui::RichText::new(format!("frame {w}×{h}"))
+                                    .size(11.0)
+                                    .color(MUTED),
+                            );
+                        }
+                    }
+                });
+
                 ui.add_space(14.0);
                 ui.label(egui::RichText::new("FIT").size(11.0).strong().color(MUTED));
                 ui.add_space(6.0);
@@ -433,18 +485,12 @@ impl eframe::App for SheetPackerApp {
                     });
 
                 ui.add_space(10.0);
-                let labels_ok = self.fit_mode != FitMode::Letterbox;
-                ui.add_enabled(
-                    labels_ok,
-                    egui::Checkbox::new(&mut self.labels, "File-name labels"),
-                )
-                .on_disabled_hover_text("Labels are for grid layouts — use Exact or Stretch.");
-                if labels_ok && self.labels {
-                    ui.label(
-                        egui::RichText::new("good for contact sheets")
-                            .size(11.0)
-                            .color(MUTED),
-                    );
+                ui.checkbox(&mut self.labels, "File-name labels");
+                if self.labels {
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.label_below, false, "On image");
+                        ui.selectable_value(&mut self.label_below, true, "Beneath");
+                    });
                 }
 
                 ui.add_space(14.0);
@@ -631,6 +677,7 @@ impl eframe::App for SheetPackerApp {
             self.spacing,
             self.fit_mode,
             self.labels,
+            self.label_below,
         );
         if now != snapshot {
             self.dirty = true;
