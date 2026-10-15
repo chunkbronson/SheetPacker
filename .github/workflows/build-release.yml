@@ -1,0 +1,69 @@
+name: build-release
+
+# Builds the artifacts and attaches them to a GitHub Release.
+#   - Push a tag like v0.1.1 to build + publish a release automatically.
+#   - Or run it manually from the Actions tab (artifacts only, no release).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add Windows target
+        run: rustup target add x86_64-pc-windows-gnu
+
+      - name: Install cross toolchain (MinGW, NSIS, zip)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64 nsis zip
+
+      - name: Build Linux binary
+        run: cargo build --release
+
+      - name: Build Windows binary
+        env:
+          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: cargo build --release --target x86_64-pc-windows-gnu
+
+      - name: Assemble artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p dist/SheetPacker
+          cp target/x86_64-pc-windows-gnu/release/sheetpacker.exe dist/SheetPacker/SheetPacker.exe
+          cp installer/README.txt dist/SheetPacker/README.txt
+          cp assets/SheetPacker.ico dist/SheetPacker/
+          cp installer/SheetPacker.nsi dist/SheetPacker/
+          ( cd dist/SheetPacker && makensis SheetPacker.nsi )
+          cp dist/SheetPacker/SheetPacker.exe        dist/SheetPacker.exe
+          cp dist/SheetPacker/SheetPacker-Setup.exe  dist/SheetPacker-Setup.exe
+          ( cd dist && zip -r ../SheetPacker-windows-portable.zip SheetPacker )
+          tar -czf SheetPacker-linux-x86_64.tar.gz -C target/release sheetpacker
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SheetPacker
+          path: |
+            dist/SheetPacker-Setup.exe
+            dist/SheetPacker.exe
+            SheetPacker-windows-portable.zip
+            SheetPacker-linux-x86_64.tar.gz
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/SheetPacker-Setup.exe
+            dist/SheetPacker.exe
+            SheetPacker-windows-portable.zip
+            SheetPacker-linux-x86_64.tar.gz

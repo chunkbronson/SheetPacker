@@ -1,4 +1,5 @@
 /target
+/dist
 *.rs.bk
 
 # Local dev / AI scaffolding — not part of the public project
